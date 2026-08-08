@@ -1,7 +1,6 @@
 import os
 import random
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import json
 from urllib.parse import quote
 
 import requests
@@ -14,8 +13,6 @@ import requests
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 
 CATAAS_BASE = "https://cataas.com"
-
-IST = ZoneInfo("Asia/Kolkata")
 
 
 # ============================================================
@@ -52,13 +49,60 @@ CAT_MESSAGES = [
 
 def send_to_discord(title, image_url, message=None):
     """
-    Sends a cat image/GIF to Discord using a webhook.
+    Downloads the image/GIF from CATAAS first and then
+    uploads the actual file to Discord.
+
+    This prevents CATAAS from generating a different
+    random cat when the Discord image is opened.
     """
+
+    print("Downloading cat from CATAAS...")
+    print("URL:", image_url)
+
+    # --------------------------------------------------------
+    # Download the actual image from CATAAS
+    # --------------------------------------------------------
+
+    image_response = requests.get(
+        image_url,
+        timeout=30
+    )
+
+    image_response.raise_for_status()
+
+    content_type = image_response.headers.get(
+        "Content-Type",
+        "image/jpeg"
+    ).lower()
+
+    print("CATAAS content type:", content_type)
+
+    # --------------------------------------------------------
+    # Determine filename
+    # --------------------------------------------------------
+
+    if "gif" in content_type:
+        filename = "cat.gif"
+
+    elif "png" in content_type:
+        filename = "cat.png"
+
+    elif "webp" in content_type:
+        filename = "cat.webp"
+
+    else:
+        filename = "cat.jpg"
+
+    print("Filename:", filename)
+
+    # --------------------------------------------------------
+    # Discord Embed
+    # --------------------------------------------------------
 
     embed = {
         "title": title,
         "image": {
-            "url": image_url
+            "url": f"attachment://{filename}"
         }
     }
 
@@ -69,19 +113,39 @@ def send_to_discord(title, image_url, message=None):
         "embeds": [embed]
     }
 
+    # --------------------------------------------------------
+    # Upload actual image to Discord
+    # --------------------------------------------------------
+
+    print("Uploading cat to Discord...")
+
     response = requests.post(
         DISCORD_WEBHOOK,
-        json=payload,
+        data={
+            "payload_json": json.dumps(payload)
+        },
+        files={
+            "file": (
+                filename,
+                image_response.content,
+                content_type
+            )
+        },
         timeout=30
     )
+
+    # --------------------------------------------------------
+    # Check Discord response
+    # --------------------------------------------------------
 
     if response.status_code not in (200, 204):
         print("Discord webhook failed.")
         print("Status:", response.status_code)
         print("Response:", response.text)
+
         response.raise_for_status()
 
-    print("Successfully posted to Discord.")
+    print("Successfully posted the exact cat image to Discord.")
 
 
 # ============================================================
@@ -90,7 +154,6 @@ def send_to_discord(title, image_url, message=None):
 
 def random_cat():
     """
-    9 AM
     Random normal cat.
     """
 
@@ -102,19 +165,17 @@ def random_cat():
 
 def random_cat_gif():
     """
-    12 PM
     Random cat GIF.
     """
 
     return (
-        "😹 Cat GIF of the Day",
+        "😹 Cat GIF of the Hour",
         f"{CATAAS_BASE}/cat/gif"
     )
 
 
 def tagged_cat():
     """
-    3 PM
     Random tagged cat.
     """
 
@@ -128,7 +189,6 @@ def tagged_cat():
 
 def cat_saying():
     """
-    6 PM
     Random cat saying something.
     """
 
@@ -145,7 +205,6 @@ def cat_saying():
 
 def tagged_cat_saying():
     """
-    9 PM
     Random tagged cat saying something.
     """
 
@@ -156,7 +215,7 @@ def tagged_cat_saying():
     encoded_message = quote(message)
 
     return (
-        "😂 Cat of the Night",
+        "😂 Cat of the Hour",
         f"{CATAAS_BASE}/cat/{encoded_tag}/says/{encoded_message}",
         message
     )
@@ -168,33 +227,23 @@ def tagged_cat_saying():
 
 def get_post_for_current_time():
     """
-    Determines which cat post should be sent based on IST.
+    Every time GitHub Actions runs this script,
+    randomly select one of the available cat types.
     """
 
-    now = datetime.now(IST)
+    posts = [
+        random_cat,
+        random_cat_gif,
+        tagged_cat,
+        cat_saying,
+        tagged_cat_saying
+    ]
 
-    hour = now.hour
+    selected_post = random.choice(posts)
 
-    print("Current IST time:", now.strftime("%Y-%m-%d %H:%M:%S"))
+    print("Selected cat type:", selected_post.__name__)
 
-    if hour == 9:
-        return random_cat()
-
-    elif hour == 12:
-        return random_cat_gif()
-
-    elif hour == 15:
-        return tagged_cat()
-
-    elif hour == 18:
-        return cat_saying()
-
-    elif hour == 21:
-        return tagged_cat_saying()
-
-    else:
-        print(f"No scheduled cat post for {hour}:00 IST.")
-        return None
+    return selected_post()
 
 
 # ============================================================
@@ -203,19 +252,30 @@ def get_post_for_current_time():
 
 def main():
 
-    post = get_post_for_current_time()
+    print("========================================")
+    print("        CAT DISCORD POSTER")
+    print("========================================")
 
-    if post is None:
-        return
+    # --------------------------------------------------------
+    # Select random cat post
+    # --------------------------------------------------------
+
+    post = get_post_for_current_time()
 
     title = post[0]
     image_url = post[1]
 
-    # Some posts contain an additional message
+    # Some cat types contain a message
     message = post[2] if len(post) > 2 else None
 
-    print("Post type:", title)
-    print("Cat URL:", image_url)
+    print("Post title:", title)
+
+    if message:
+        print("Message:", message)
+
+    # --------------------------------------------------------
+    # Download and send to Discord
+    # --------------------------------------------------------
 
     send_to_discord(
         title=title,
@@ -223,6 +283,14 @@ def main():
         message=message
     )
 
+    print("========================================")
+    print("             COMPLETE")
+    print("========================================")
+
+
+# ============================================================
+# START
+# ============================================================
 
 if __name__ == "__main__":
     main()
