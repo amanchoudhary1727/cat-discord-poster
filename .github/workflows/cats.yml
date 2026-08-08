@@ -1,0 +1,43 @@
+name: Daily Cat Poster
+
+on:
+  schedule:
+    # 09:00 IST
+    - cron: "30 3 * * *"
+
+    # 12:00 IST
+    - cron: "30 6 * * *"
+
+    # 15:00 IST
+    - cron: "30 9 * * *"
+
+    # 18:00 IST
+    - cron: "30 12 * * *"
+
+    # 21:00 IST
+    - cron: "30 15 * * *"
+
+  # Allows you to manually test the workflow
+  workflow_dispatch:
+
+jobs:
+  post-cat:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Cat Poster
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python cat_poster.py
