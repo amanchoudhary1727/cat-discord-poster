@@ -1,23 +1,11 @@
-name: Daily Cat Poster
+name: Cat Poster
 
 on:
   schedule:
-    # 09:00 IST
-    - cron: "30 3 * * *"
+    # Run every hour
+    - cron: "0 * * * *"
 
-    # 12:00 IST
-    - cron: "30 6 * * *"
-
-    # 15:00 IST
-    - cron: "30 9 * * *"
-
-    # 18:00 IST
-    - cron: "30 12 * * *"
-
-    # 21:00 IST
-    - cron: "30 15 * * *"
-
-  # Allows you to manually test the workflow
+  # Allows manual testing from GitHub
   workflow_dispatch:
 
 jobs:
@@ -25,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
